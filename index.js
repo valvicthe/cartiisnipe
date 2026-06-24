@@ -18,29 +18,60 @@ async function checkCatalog() {
 
     try {
         const response = await axios.get(CONFIG.API_URL);
-        const items = response.data; // Assumes the API returns an array of items
+        
+        // Handle both raw arrays and nested data wraps (e.g., response.data.data)
+        const items = Array.isArray(response.data) ? response.data : response.data.data;
 
-        let newDetected = false;
+        if (!items || !items.length) {
+            console.log("No items returned from endpoint.");
+            return;
+        }
 
         for (const item of items) {
-            if (!knownItems.has(item.id)) {
-                knownItems.add(item.id);
+            // Fallback chain targeting common revival database schemas
+            const itemId = item.id || item.assetId || item.Id;
+
+            if (itemId && !knownItems.has(itemId)) {
+                knownItems.add(itemId);
                 
-                // Don't spam Discord with the entire catalog on the first boot
                 if (!isFirstRun) {
-                    await sendDiscordAlert(item);
-                    newDetected = true;
+                    await sendDiscordAlert(item, itemId);
                 }
             }
         }
 
         if (isFirstRun) {
-            console.log(`System initialized. Cached ${knownItems.size} items.`);
+            console.log(`Initialization complete. Monitoring ${knownItems.size} items.`);
             isFirstRun = false;
         }
 
     } catch (error) {
         console.error('Error fetching catalog data:', error.message);
+    }
+}
+
+async function sendDiscordAlert(item, itemId) {
+    const itemName = item.name || item.title || 'Unknown Asset';
+    const itemPrice = item.price !== undefined ? item.price : (item.robux ?? 'Free');
+
+    const payload = {
+        embeds: [{
+            title: `🚨 New Item Released: ${itemName}`,
+            color: 4321431, // Custom color
+            fields: [
+                { name: 'Price', value: `${itemPrice}`, inline: true },
+                { name: 'Asset ID', value: `${itemId}`, inline: true }
+            ],
+            footer: { text: 'cartii.fit Monitor' },
+            timestamp: new Date()
+        }]
+    };
+
+    try {
+        await axios.post(CONFIG.WEBHOOK_URL, payload);
+        console.log(`Discord alert fired for Asset ID: ${itemId}`);
+    } catch (error) {
+        console.error('Discord webhook dispatch error:', error.message);
     }
 }
 
