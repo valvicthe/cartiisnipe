@@ -1,0 +1,12 @@
+{
+  "name": "cartiisnipe",
+  "version": "1.0.0",
+  "description": "Monitors cartii.fit's API endpoint and sends alerts to Discord",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}
